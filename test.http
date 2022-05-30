@@ -1,0 +1,7 @@
+### Send request with dynamic variables in request's body
+POST http://localhost:6800/v1/auth/login
+Content-Type: application/json
+
+{
+  "code": "XXXXXXXXXXXXX"
+}

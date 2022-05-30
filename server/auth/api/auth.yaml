@@ -1,0 +1,10 @@
+type: google.api.Service
+config_version: 3
+
+http:
+    rules:
+        # coolcar.TripService.GetTrip --> selector定义：protoc定义的包名+service服务名+rpc方法名
+        - selector: auth.v1.AuthService.Login
+            # 向外暴露的REST API风格接口
+          post: /v1/auth/login
+          body: "*"

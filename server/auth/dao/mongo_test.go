@@ -2,14 +2,21 @@ package dao
 
 import (
 	"context"
+	mgo "coolcar/shared/mongo"
+	mongotesting "coolcar/shared/mongo/testing"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"os"
 	"testing"
 )
 
+var mongoURI string
+
 func TestResolveAccountID(t *testing.T) {
 	c := context.Background()
-	mc, err := mongo.Connect(c, options.Client().ApplyURI("mongodb://localhost:27017/coolcar?readPreference=primary&ssl=false"))
+	mc, err := mongo.Connect(c, options.Client().ApplyURI(mongoURI))
 
 	if err != nil {
 		t.Fatalf("cannot connect to mongo: %v", err)
@@ -17,16 +24,69 @@ func TestResolveAccountID(t *testing.T) {
 
 	m := NewMongo(mc.Database("coolcar"))
 
-	id, err := m.ResolveAccountID(c, "123")
+	_, err = m.col.InsertMany(c, []interface{}{
+		bson.M{
+			mgo.IDField: mustObjectID("5f7c245ab0361e00ffb9fd6f"),
+			openIDField: "openid_1",
+		},
+		bson.M{
+			mgo.IDField: mustObjectID("5f7c245ab0361e00ffb9fd70"),
+			openIDField: "openid_2",
+		},
+	})
 
 	if err != nil {
-		t.Errorf("cannot resolve account id for 123: %v", err)
-	} else {
-		want := "629482ec61fc41116c3b89b1"
-		if id != want {
-			// 如果id不等于want，则打印错误信息
-			// %q 单引号，%v 值，%T 类型 %s 字符串
-			t.Errorf("got %q, want %q", id, want)
-		}
+		t.Fatalf("cannot insert many: %v", err)
 	}
+
+	m.newObjID = func() primitive.ObjectID {
+		return mustObjectID("5f7c245ab0361e00ffb9fd71")
+	}
+
+	// 表格驱动测试
+	cases := []struct {
+		name   string
+		openID string
+		want   string
+	}{
+		{
+			name:   "existing_user",
+			openID: "openid_1",
+			want:   "5f7c245ab0361e00ffb9fd6f",
+		},
+		{
+			name:   "another_existing_user",
+			openID: "openid_2",
+			want:   "5f7c245ab0361e00ffb9fd70",
+		},
+		{
+			name:   "new_user",
+			openID: "openid_3",
+			want:   "5f7c245ab0361e00ffb9fd71",
+		},
+	}
+
+	for _, cc := range cases {
+		t.Run(cc.name, func(t *testing.T) {
+			got, err := m.ResolveAccountID(context.Background(), cc.openID)
+			if err != nil {
+				t.Errorf("cannot resolve account id: %v", err)
+			}
+			if got != cc.want {
+				t.Fatalf("got %q, want %q", got, cc.want)
+			}
+		})
+	}
+}
+
+func mustObjectID(hex string) primitive.ObjectID {
+	objID, err := primitive.ObjectIDFromHex(hex)
+	if err != nil {
+		panic(err)
+	}
+	return objID
+}
+
+func TestMain(m *testing.M) {
+	os.Exit(mongotesting.RunWithMongoInDocker(m, &mongoURI))
 }

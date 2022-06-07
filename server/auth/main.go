@@ -7,6 +7,7 @@ import (
 	"coolcar/auth/dao"
 	"coolcar/auth/token"
 	"coolcar/auth/wechat"
+	"coolcar/shared/server"
 	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"io/ioutil"
@@ -17,28 +18,38 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"log"
-	"net"
 )
 
+type authConfig struct {
+	mongoURI       string
+	privateKeyFile string
+	databaseName   string
+	appID          string
+	appSecret      string
+}
+
 func main() {
-	logger, err := newZapLogger()
+	logger, err := server.NewZapLogger()
 	if err != nil {
 		log.Fatalf(" cannot create logger: %v\n", err)
 	}
 
-	listen, err := net.Listen("tcp", ":4001")
-	if err != nil {
-		logger.Fatal(" failed to listen", zap.Error(err))
+	authConfig := authConfig{
+		mongoURI:       "mongodb://localhost:27017/coolcar?readPreference=primary&ssl=false",
+		databaseName:   "coolcar",
+		privateKeyFile: "/Users/asura/Code/go/ccmouse/coolcar/server/auth/private.key",
+		appID:          "app_id",
+		appSecret:      "app_secret",
 	}
 
 	c := context.Background()
-	mongoClient, err := mongo.Connect(c, options.Client().ApplyURI("mongodb://localhost:27017/coolcar?readPreference=primary&ssl=false"))
+	mongoClient, err := mongo.Connect(c, options.Client().ApplyURI(authConfig.mongoURI))
 	if err != nil {
 		logger.Fatal("cannot connect to mongo", zap.Error(err))
 	}
 
 	// 读取配置文件 private.key
-	pkFile, err := os.Open("/Users/asura/Code/go/ccmouse/coolcar/server/auth/private.key")
+	pkFile, err := os.Open(authConfig.privateKeyFile)
 	if err != nil {
 		logger.Fatal("cannot open private.key", zap.Error(err))
 	}
@@ -54,25 +65,24 @@ func main() {
 		logger.Fatal("cannot parse private.key", zap.Error(err))
 	}
 
-	s := grpc.NewServer()
-	authpb.RegisterAuthServiceServer(s, &auth.Service{
-		OpenIDResolver: &wechat.Service{
-			AppID:     "app_id",
-			AppSecret: "app_secret",
+	config := &server.GRPCConfig{
+		Name:              "auth",
+		Addr:              ":4001",
+		AuthPublicKeyFile: "",
+		RegisterFunction: func(s *grpc.Server) {
+			authpb.RegisterAuthServiceServer(s, &auth.Service{
+				OpenIDResolver: &wechat.Service{
+					AppID:     authConfig.appID,
+					AppSecret: authConfig.appSecret,
+				},
+				Mongo:          dao.NewMongo(mongoClient.Database(authConfig.databaseName)),
+				Logger:         logger,
+				TokenExpire:    2 * time.Hour,
+				TokenGenerator: token.NewJWTTokenGen("coolcar/auth", privateKey),
+			})
 		},
-		Mongo:          dao.NewMongo(mongoClient.Database("coolcar")),
-		Logger:         logger,
-		TokenExpire:    2 * time.Hour,
-		TokenGenerator: token.NewJWTTokenGen("coolcar/auth", privateKey),
-	})
+		Logger: logger,
+	}
 
-	err = s.Serve(listen)
-	logger.Fatal("cannot server", zap.Error(err))
-}
-
-// 自定义日志
-func newZapLogger() (*zap.Logger, error) {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.TimeKey = ""
-	return cfg.Build()
+	logger.Sugar().Fatal(server.RunGRPCServer(config))
 }

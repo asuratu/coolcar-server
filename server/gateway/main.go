@@ -4,8 +4,8 @@ import (
 	"context"
 	authpb "coolcar/auth/api/gen/v1"
 	rentalpb "coolcar/rental/api/gen/v1"
+	"coolcar/shared/server"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"log"
@@ -17,7 +17,7 @@ func main() {
 	c, cancel := context.WithCancel(c)
 	defer cancel()
 
-	logger, err := newZapLogger()
+	logger, err := server.NewZapLogger()
 	if err != nil {
 		log.Fatalf(" cannot create logger: %v\n", err)
 	}
@@ -32,25 +32,31 @@ func main() {
 		},
 	}))
 
-	err = authpb.RegisterAuthServiceHandlerFromEndpoint(c, mux, ":4001", []grpc.DialOption{grpc.WithInsecure()})
-	if err != nil {
-		logger.Fatal("cannot start auth grpc gatway", zap.Error(err))
+	servierConfig := []struct {
+		name         string
+		addr         string
+		registerFunc func(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error)
+	}{
+		{
+			name:         "auth",
+			addr:         ":4001",
+			registerFunc: authpb.RegisterAuthServiceHandlerFromEndpoint,
+		},
+		{
+			name:         "rental",
+			addr:         ":4002",
+			registerFunc: rentalpb.RegisterTripServiceHandlerFromEndpoint,
+		},
 	}
 
-	err = rentalpb.RegisterTripServiceHandlerFromEndpoint(c, mux, ":4002", []grpc.DialOption{grpc.WithInsecure()})
-	if err != nil {
-		logger.Fatal("cannot start rental grpc gatway", zap.Error(err))
+	for _, config := range servierConfig {
+		err := config.registerFunc(c, mux, config.addr, []grpc.DialOption{grpc.WithInsecure()})
+		if err != nil {
+			logger.Sugar().Fatalw("cannot start grpc gatway", "name", config.name, "addr", config.addr, "err", err)
+		}
 	}
 
-	err = http.ListenAndServe(":6800", mux)
-	if err != nil {
-		logger.Fatal("cannot start http server", zap.Error(err))
-	}
-}
-
-// 自定义日志
-func newZapLogger() (*zap.Logger, error) {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.TimeKey = ""
-	return cfg.Build()
+	addr := ":6800"
+	logger.Sugar().Infof("grpc gateway started at %s", addr)
+	logger.Sugar().Fatal(http.ListenAndServe(addr, mux))
 }

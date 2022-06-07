@@ -19,6 +19,6 @@ func (s *Service) CreateTrip(c context.Context, req *rentalpb.CreateTripRequest)
 	if err != nil {
 		return nil, err
 	}
-	s.Logger.Info("CreateTrip", zap.String("req", req.String()), zap.String("aid", aid))
+	s.Logger.Info("CreateTrip", zap.String("req", req.String()), zap.String("aid", aid.String()))
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }

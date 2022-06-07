@@ -39,5 +39,6 @@ func RunGRPCServer(c *GRPCConfig) error {
 
 	c.RegisterFunction(s)
 
+	c.Logger.Info("register grpc server", nameField, zap.String("addr", c.Addr))
 	return s.Serve(listen)
 }

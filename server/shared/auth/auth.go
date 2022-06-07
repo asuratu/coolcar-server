@@ -60,15 +60,22 @@ func (i *interceptor) HandleRequest(ctx context.Context, req interface{}, info *
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid authorization token: %v", err)
 	}
-	return handler(ContextWithAccountID(ctx, aid), req)
+	return handler(ContextWithAccountID(ctx, AccountID(aid)), req)
 }
 
 type accountIDKey struct {
 	accountID string
 }
 
+// AccountID 对 accountID 做一个强类型转换，保证类型安全
+type AccountID string
+
+func (a AccountID) String() string {
+	return string(a)
+}
+
 // ContextWithAccountID 在ctx上面添加accountID
-func ContextWithAccountID(ctx context.Context, aid string) context.Context {
+func ContextWithAccountID(ctx context.Context, aid AccountID) context.Context {
 	return context.WithValue(ctx, accountIDKey{}, aid)
 }
 
@@ -92,8 +99,8 @@ func tokenFromContext(ctx context.Context) (string, error) {
 
 // AccountIDFromContext get accountID from context
 // Returns Unauthenticated error if no accountID found in context
-func AccountIDFromContext(ctx context.Context) (string, error) {
-	aid, ok := ctx.Value(accountIDKey{}).(string)
+func AccountIDFromContext(ctx context.Context) (AccountID, error) {
+	aid, ok := ctx.Value(accountIDKey{}).(AccountID)
 	if !ok {
 		return "", status.Errorf(codes.Unauthenticated, "no accountID found in request")
 	}

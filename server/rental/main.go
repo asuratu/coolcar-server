@@ -15,7 +15,7 @@ func main() {
 	}
 
 	config := &server.GRPCConfig{
-		Name:              "trip",
+		Name:              "rental",
 		Addr:              ":4002",
 		AuthPublicKeyFile: "shared/auth/public.key",
 		RegisterFunction: func(s *grpc.Server) {

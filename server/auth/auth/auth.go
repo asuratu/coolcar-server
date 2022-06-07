@@ -30,7 +30,7 @@ type TokenGenerator interface {
 	GenerateToken(account string, expire time.Duration) (string, error)
 }
 
-func (s Service) Login(ctx context.Context, request *authpb.LoginRequest) (*authpb.LoginResponse, error) {
+func (s *Service) Login(ctx context.Context, request *authpb.LoginRequest) (*authpb.LoginResponse, error) {
 	s.Logger.Info("received code", zap.String("code", request.Code))
 	openID, err := s.OpenIDResolver.Resolve(request.Code)
 	if err != nil {

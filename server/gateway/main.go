@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	authpb "coolcar/auth/api/gen/v1"
+	rentalpb "coolcar/rental/api/gen/v1"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -36,9 +37,14 @@ func main() {
 		logger.Fatal("cannot start auth grpc gatway", zap.Error(err))
 	}
 
+	err = rentalpb.RegisterTripServiceHandlerFromEndpoint(c, mux, ":4002", []grpc.DialOption{grpc.WithInsecure()})
+	if err != nil {
+		logger.Fatal("cannot start rental grpc gatway", zap.Error(err))
+	}
+
 	err = http.ListenAndServe(":6800", mux)
 	if err != nil {
-		logger.Fatal("cannot listen and server auth", zap.Error(err))
+		logger.Fatal("cannot start http server", zap.Error(err))
 	}
 }
 

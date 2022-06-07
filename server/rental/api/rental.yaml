@@ -1,0 +1,10 @@
+type: google.api.Service
+config_version: 3
+
+http:
+    rules:
+        # rental.TripService.CreateTrip --> selector定义：protoc定义的包名+service服务名+rpc方法名
+        - selector: rental.v1.TripService.CreateTrip
+            # 向外暴露的REST API风格接口
+          post: /v1/trip
+          body: "*"

@@ -2,13 +2,74 @@ syntax = "proto3";
 package rental.v1;
 option go_package = "coolcar/auth/api/gen/v1;authpb";
 
-message CreateTripRequest {
-  string start = 1;
+// value object vs entity
+// value object: only has value, no state
+message Location {
+    double latitude = 1;
+    double longitude = 2;
 }
 
-message CreateTripResponse {
+message LocationStatus {
+    Location location = 1;
+    int32 fee_cent = 2;
+    double km_driven = 3;
+    // poi is point of interest
+    string poi_name = 4;
+}
+
+enum TripStatus {
+    TP_NOT_SPECIFIED = 0;
+    IN_PROGRESS = 1;
+    FINISHED = 2;
+}
+
+// entity: has id
+message TripEntity {
+    string id = 1;
+    Trip trip = 2;
+}
+
+// proto都是用下划线来命名
+// 实体类型 vs 值对象类型
+// 实体类型: 实体类型是一个类，它的属性是值对象类型
+// 只要实体类型的id相等，那么就认为在描述同一个实体
+message Trip {
+    string account_id = 1;
+    string car_id = 2;
+    LocationStatus start = 3;
+    LocationStatus current = 4;
+    LocationStatus end = 5;
+    TripStatus status = 6;
+}
+
+message CreateTripRequest {
+    Location start = 1;
+    string car_id = 2;
+}
+
+message UpdateTripRequest {
+    string id = 1;
+    Location current = 2;
+    // 是否结束trip
+    bool end_trip = 3;
+
+}
+
+message GetTripRequest {
+    string id = 1;
+}
+
+message GetTripsRequest {
+    TripStatus status = 1;
+}
+
+message GetTripsResponse {
+    repeated TripEntity trips = 1;
 }
 
 service TripService {
-    rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse) {}
+    rpc CreateTrip(CreateTripRequest) returns (TripEntity) {}
+    rpc GetTrip(GetTripRequest) returns (Trip) {}
+    rpc GetTrips(GetTripsRequest) returns (GetTripsResponse) {}
+    rpc UpdateTrip(UpdateTripRequest) returns (Trip) {}
 }

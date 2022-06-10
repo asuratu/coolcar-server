@@ -2,7 +2,7 @@ package dao
 
 import (
 	"context"
-	mgo "coolcar/shared/mongo"
+	mgutil "coolcar/shared/mongo"
 	mongotesting "coolcar/shared/mongo/testing"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -26,12 +26,12 @@ func TestResolveAccountID(t *testing.T) {
 
 	_, err = m.col.InsertMany(c, []interface{}{
 		bson.M{
-			mgo.IDField: mustObjectID("5f7c245ab0361e00ffb9fd6f"),
-			openIDField: "openid_1",
+			mgutil.IDFieldName: mustObjectID("5f7c245ab0361e00ffb9fd6f"),
+			openIDField:        "openid_1",
 		},
 		bson.M{
-			mgo.IDField: mustObjectID("5f7c245ab0361e00ffb9fd70"),
-			openIDField: "openid_2",
+			mgutil.IDFieldName: mustObjectID("5f7c245ab0361e00ffb9fd70"),
+			openIDField:        "openid_2",
 		},
 	})
 
@@ -39,7 +39,7 @@ func TestResolveAccountID(t *testing.T) {
 		t.Fatalf("cannot insert many: %v", err)
 	}
 
-	m.newObjID = func() primitive.ObjectID {
+	mgutil.NewObjID = func() primitive.ObjectID {
 		return mustObjectID("5f7c245ab0361e00ffb9fd71")
 	}
 
